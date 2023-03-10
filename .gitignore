@@ -1,0 +1,16 @@
+/target
+
+# repo/request dumps
+*.json
+# cloned repos / gource logs
+/data/
+# repo selection
+.repoignore
+# gource generated videos
+*.mp4
+# github token + config
+.env
+
+# direnv related stuff
+.envrc
+.direnv/
