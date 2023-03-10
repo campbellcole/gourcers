@@ -1,6 +1,6 @@
 # gourcers
 
-A tool for running `gource` on many repos at the same time. Given a GitHub token and a special ignore file (see [Ignore yntax](#ignore-syntax)), this tool will clone and gource each repo individually, in parallel, and then merge the gource logs together and then execute gource on the log.
+A tool for running `gource` on many repos at the same time. Given a GitHub token and a special ignore file (see [Ignore syntax](#ignore-syntax)), this tool will clone and gource each repo individually, in parallel, and then merge the gource logs together and then execute gource on the log.
 
 ## Compatibility
 
