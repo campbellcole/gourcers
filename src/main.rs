@@ -59,16 +59,15 @@ pub struct Settings {
         short,
         long,
         help = "Use dump file instead of reading GitHub API",
-        env = "USE_DUMP",
         action = clap::ArgAction::SetTrue
     )]
     pub use_dump: Option<bool>,
     #[clap(long, help = "Dump requests", action = clap::ArgAction::SetTrue)]
     pub dump_requests: Option<bool>,
-    #[clap(short = 'i', long, help = "Ignore repos")]
-    pub ignore: Option<Vec<String>>,
-    #[clap(short = 'f', long, help = "Ignore file")]
-    pub ignore_file: Option<PathBuf>,
+    #[clap(short = 'i', long, help = "Ignore repos", action = clap::ArgAction::Append)]
+    pub ignore: Vec<String>,
+    #[clap(short = 'f', long, help = "File to read ignore rules from")]
+    pub ignores_file: Option<PathBuf>,
     #[clap(short = 's', long, help = "Stop after n repos")]
     pub stop_after: Option<usize>,
     #[clap(long, help = "Only find and filter repos, no cloning/gourcing", action = clap::ArgAction::SetTrue)]
@@ -159,7 +158,7 @@ async fn main() {
     let settings = Settings::parse();
     let mut ignores = None;
 
-    if let Some(ignore_file) = &settings.ignore_file {
+    if let Some(ignore_file) = &settings.ignores_file {
         let ignores_str = match fs::read_to_string(ignore_file) {
             Ok(ignores_str) => ignores_str,
             Err(err) => {
@@ -174,16 +173,15 @@ async fn main() {
         };
     }
 
-    if ignores.is_none() {
-        if let Some(ignore) = &settings.ignore {
-            let ignores_str = ignore.join(" ");
-            match ignores_str.parse::<IgnoreFile>() {
-                Ok(parsed) => ignores = Some(parsed),
-                Err(err) => {
-                    failure!("Failed to parse ignores argument: {err}");
-                }
-            };
-        }
+    if ignores.is_none() && !settings.ignore.is_empty() {
+        trace!("Ignoring repos: {:?}", &settings.ignore);
+        let ignores_str = settings.ignore.join("\n");
+        match ignores_str.parse::<IgnoreFile>() {
+            Ok(parsed) => ignores = Some(parsed),
+            Err(err) => {
+                failure!("Failed to parse ignores argument: {err}");
+            }
+        };
     }
 
     if !settings.data_folder.exists() {
