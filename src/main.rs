@@ -342,16 +342,7 @@ async fn main() {
     m.println("Done!").unwrap();
     m.clear().unwrap();
 
-    // if let Err(err) = gource::combine_gource_logs(
-    //     &settings,
-    //     &repos[..settings.stop_after.unwrap_or(repos.len())],
-    // )
-    // .await
-    // {
-    //     failure!("Failed to combine gource logs: {err}");
-    // }
-
-    if let Err(err) = qsv::sort_combined_logs(&settings, &repos).await {
+    if let Err(err) = qsv::combine_and_sort_logs(&settings, &repos).await {
         failure!("Failed to combine and sort logs: {err}");
     }
 

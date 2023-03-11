@@ -18,7 +18,7 @@ use crate::{gh::Repo, Settings};
 /// # format the logs (change the commas back to pipes, gource expects pipes)
 /// qsv fmt -t \| -o $SORTED_LOG
 /// ```
-pub async fn sort_combined_logs(settings: &Settings, repos: &[Repo]) -> Result<()> {
+pub async fn combine_and_sort_logs(settings: &Settings, repos: &[Repo]) -> Result<()> {
     debug!("combining gource logs");
     let mut combined = String::new();
 
