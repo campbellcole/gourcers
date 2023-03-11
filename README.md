@@ -39,9 +39,9 @@ Finally, execute this crate using `gourcers --data-folder <data folder>`.
 This crate has quite a few options. You can see them all using `gourcers --help`:
 
 - `-t <token>` or `--token <token>`: Pass the GitHub token as an argument rather than reading it from an environment variable.
-- `-o <data_folder>` or `--data-folder <data_folder>`: The directory to store the cloned repos and gource logs.
+- `-d <data_folder>` or `--data-folder <data_folder>`: The directory to store the cloned repos and gource logs.
   - It is recommended that you keep this directory if you are going to run this multiple times. If the repos already exist, this crate will `git pull` them instead of cloning again.
-- `-d` or `--dump`: Dump the list of repos to a JSON file in the CWD. This prevents unneccesary calls to the GitHub API.
+- `-c` or `--create-dump`: Dump the list of repos to a JSON file in the CWD. This prevents unneccesary calls to the GitHub API.
   - If you are going to run this crate multiple times consecutively, it is recommended that you enable this flag for the first run, then use the `--use-dump` argument for all consecutive calls.
 - `-u` or `--use-dump`: Use the dump created by the `--dump` option rather than calling the GitHub API again.
 - `--dump-requests`: Dump the raw data from the GitHub API to a sequence of JSON files in the CWD.
@@ -64,6 +64,8 @@ This crate has quite a few options. You can see them all using `gourcers --help`
   - This crate may have a tendency to detect the value of this argument as a list of arguments itself. To get around this, use `--gource-options='<args>'`.
   - Using `--hide root` is recommended for best results.
   - Defaults to `--hide root -a 1 -s 1 -c 4 --key --multi-sampling`.
+- `-n` or `--no-gource`: Skip running the final gource command, only generates the logs.
+  - Logs will be saved to `<data_folder>/sorted.txt`
 - `-h` or `--help`: Print the help message.
 - `-V` or `--version`: Print the crate version.
 

@@ -51,10 +51,10 @@ mod tests;
 pub struct Settings {
     #[clap(short = 't', long, help = "GitHub token", env = "GH_TOKEN")]
     pub token: String,
-    #[clap(short = 'o', long, help = "Data folder")]
+    #[clap(short = 'd', long, help = "Data folder")]
     pub data_folder: PathBuf,
-    #[clap(short = 'd', long, help = "Create dump file", action = clap::ArgAction::SetTrue)]
-    pub dump: Option<bool>,
+    #[clap(short = 'c', long, help = "Create dump file", action = clap::ArgAction::SetTrue)]
+    pub create_dump: Option<bool>,
     #[clap(
         short,
         long,
@@ -95,6 +95,13 @@ pub struct Settings {
         default_value = "--hide root -a 1 -s 1 -c 4 --key --multi-sampling"
     )]
     pub gource_options: String,
+    #[clap(
+        short = 'n',
+        long,
+        help = "Skip the final gource, just generate logs",
+        action = clap::ArgAction::SetTrue
+    )]
+    pub no_gource: Option<bool>,
 }
 
 impl Settings {
@@ -220,7 +227,7 @@ async fn main() {
 
     debug!("loaded {} repos", repos.len());
 
-    if let Some(true) = settings.dump {
+    if let Some(true) = settings.create_dump {
         let dump_file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -293,7 +300,7 @@ async fn main() {
     )
     .context("Failed to create progress bar style")
     .unwrap()
-    .progress_chars("##-");
+    .progress_chars("▓▒░");
 
     let clone_progress = m.add(ProgressBar::new(repos.len() as u64));
     clone_progress.set_style(style.clone());
@@ -335,20 +342,22 @@ async fn main() {
     m.println("Done!").unwrap();
     m.clear().unwrap();
 
-    if let Err(err) = gource::combine_gource_logs(
-        &settings,
-        &repos[..settings.stop_after.unwrap_or(repos.len())],
-    )
-    .await
-    {
-        failure!("Failed to combine gource logs: {err}");
+    // if let Err(err) = gource::combine_gource_logs(
+    //     &settings,
+    //     &repos[..settings.stop_after.unwrap_or(repos.len())],
+    // )
+    // .await
+    // {
+    //     failure!("Failed to combine gource logs: {err}");
+    // }
+
+    if let Err(err) = qsv::sort_combined_logs(&settings, &repos).await {
+        failure!("Failed to combine and sort logs: {err}");
     }
 
-    if let Err(err) = qsv::sort_combined_logs(&settings).await {
-        failure!("Failed to sort combined logs: {err}");
-    }
-
-    if let Err(err) = gource::execute_gource(&settings).await {
-        failure!("Failed to execute gource: {err}");
+    if !matches!(settings.no_gource, Some(true)) {
+        if let Err(err) = gource::execute_gource(&settings).await {
+            failure!("Failed to execute gource: {err}");
+        }
     }
 }

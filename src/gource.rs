@@ -62,38 +62,6 @@ pub async fn generate_gource_log(settings: &Settings, repo: &Repo) -> Result<()>
     Ok(())
 }
 
-pub async fn combine_gource_logs(settings: &Settings, repos: &[Repo]) -> Result<()> {
-    debug!("combining gource logs");
-    let mut gource_log = String::new();
-
-    for repo in repos {
-        let repo_gource_log = tokio::fs::read_to_string(settings.gource_log_file(repo))
-            .await
-            .context("failed to read gource log file")?;
-        gource_log.push_str(&repo_gource_log);
-    }
-
-    let gource_log_path = settings.combined_log_file();
-    if gource_log_path.exists() {
-        tokio::fs::remove_file(&gource_log_path)
-            .await
-            .context("failed to remove old combined gource log file")?;
-    }
-    let mut gource_log_file = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&gource_log_path)
-        .await
-        .context("failed to open gource log file")?;
-    gource_log_file
-        .write_all(gource_log.as_bytes())
-        .await
-        .context("failed to write gource log file")?;
-
-    Ok(())
-}
-
 pub async fn execute_gource(settings: &Settings) -> Result<()> {
     let gource_args = settings.gource_options.trim().split(' ');
 
