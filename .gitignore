@@ -1,0 +1,6 @@
+/.direnv
+/.env
+/target
+/data
+/.repoinclude
+**/*.mp4
