@@ -23,6 +23,7 @@
             clang
             rust-analyzer
             gource
+            ffmpeg
           ];
 
           buildInputs = [
