@@ -37,7 +37,6 @@ gourcers -d ./gourcers-data -i "owner:<your_username>"
 
 ```console
 $ gourcers --help
-
 A CLI tool for making gource visualizations of multiple repositories
 
 Usage: gourcers [OPTIONS] --token <TOKEN>
