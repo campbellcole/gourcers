@@ -3,6 +3,7 @@ name = "gourcers"
 version = "1.0.0"
 edition = "2021"
 exclude = [".vscode", ".envrc", "flake.*"]
+license = "MIT"
 
 authors = ["Campbell Cole <pslightjs@gmail.com>"]
 description = "A CLI tool for making gource visualizations of multiple repositories"
