@@ -4,3 +4,4 @@
 /data
 /.repoinclude
 **/*.mp4
+/.cargo

@@ -58,8 +58,8 @@ impl From<(usize, ErrorKind)> for Error {
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct RuleSet {
-    pub(crate) entries: Vec<Entry>,
-    pub(crate) inverted_entries: Vec<Entry>,
+    pub(crate) includes: Vec<Entry>,
+    pub(crate) excludes: Vec<Entry>,
 }
 
 impl FromStr for RuleSet {
@@ -75,17 +75,17 @@ impl FromStr for RuleSet {
                 continue;
             }
 
-            let inverted = line.starts_with('!');
-            if inverted {
+            let exclude = line.starts_with('!');
+            if exclude {
                 line = &line[1..];
             }
 
             let entry = line.parse().map_err(|e| Error::from((line_number, e)))?;
 
-            if inverted {
-                include_file.inverted_entries.push(entry);
+            if exclude {
+                include_file.excludes.push(entry);
             } else {
-                include_file.entries.push(entry);
+                include_file.includes.push(entry);
             }
         }
 
@@ -115,14 +115,14 @@ impl RuleSet {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            entries: Vec::new(),
-            inverted_entries: Vec::new(),
+            includes: Vec::new(),
+            excludes: Vec::new(),
         }
     }
 
     pub fn merge(&mut self, other: Self) {
-        self.entries.extend(other.entries);
-        self.inverted_entries.extend(other.inverted_entries);
+        self.includes.extend(other.includes);
+        self.excludes.extend(other.excludes);
     }
 
     pub fn apply(&self, repos: &mut Vec<Repo>) {
@@ -131,7 +131,7 @@ impl RuleSet {
             match res {
                 IncludeResult::Exclude(inclusion, exclusion) => {
                     debug!(
-                        "ignoring repo {} because {} but {}",
+                        "excluding repo {}: {} but {}",
                         r.full_name.as_ref().unwrap_or(&r.name),
                         inclusion.describe(),
                         exclusion.describe()
@@ -139,7 +139,7 @@ impl RuleSet {
                 }
                 IncludeResult::Include(inclusion) => {
                     debug!(
-                        "keeping repo {} because {}",
+                        "including repo {}: {}",
                         r.full_name.as_ref().unwrap_or(&r.name),
                         inclusion.describe()
                     );
@@ -160,15 +160,11 @@ impl RuleSet {
     /// If the repo is included but matches an exclusion, the repo is ignored.
     #[must_use]
     pub fn test(&self, repo: &Repo) -> IncludeResult<'_> {
-        let Some(inclusion) = self
-            .inverted_entries
-            .iter()
-            .find(|entry| entry.matches(repo))
-        else {
+        let Some(inclusion) = self.includes.iter().find(|entry| entry.matches(repo)) else {
             return IncludeResult::Default;
         };
 
-        let Some(exclusion) = self.entries.iter().find(|entry| entry.matches(repo)) else {
+        let Some(exclusion) = self.excludes.iter().find(|entry| entry.matches(repo)) else {
             return IncludeResult::Include(inclusion);
         };
 
@@ -326,8 +322,8 @@ mod tests {
         let contents = CONTENTS.trim();
 
         let expected = RuleSet {
-            entries: vec![Entry::new(Selector::All, &"*")],
-            inverted_entries: vec![
+            includes: vec![Entry::new(Selector::All, &"*")],
+            excludes: vec![
                 Entry::new(Selector::Public, &"false"),
                 Entry::new(Selector::IsFork, &"true"),
                 Entry::new(Selector::Owner, &"rust-lang"),

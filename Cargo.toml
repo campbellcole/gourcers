@@ -1,9 +1,16 @@
 [package]
-name = "gourcers-ng"
-version = "0.1.0"
+name = "gourcers"
+version = "1.0.0"
 edition = "2021"
+exclude = [".vscode", ".envrc", "flake.*"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Campbell Cole <pslightjs@gmail.com>"]
+description = "A CLI tool for making gource visualizations of multiple repositories"
+homepage = "https://github.com/campbellcole/gourcers"
+documentation = "https://github.com/campbellcole/gourcers"
+
+categories = ["command-line-utilities", "visualization", "multimedia::video"]
+keywords = ["gource", "github", "git"]
 
 [dependencies]
 clap = { version = "4.4.18", features = ["derive", "env"] }
@@ -29,7 +36,7 @@ tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [features]
-default = ["native-tls"]
+default = ["rustls-tls"]
 rustls-tls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
 

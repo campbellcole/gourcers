@@ -38,33 +38,25 @@ pub struct Cli {
     ///
     /// If left blank, a temporary directory will be created and removed after finishing.
     ///
-    /// If you are going to be running this command multiple times, it is recommended to specify a directory
-    /// to ensure work is not done multiple times needlessly.
+    /// If you are going to be running this command multiple times, it is recommended to specify a
+    /// directory to ensure work is not done multiple times needlessly.
     #[clap(short, long)]
     pub data_dir: Option<PathBuf>,
     /// Silently allow using a temporary data directory instead of prompting for confirmation.
     #[clap(short = 'y', long)]
     pub temp: bool,
-    /// The path to output the resulting gource video.
-    #[clap(short, long, default_value_os_t = PathBuf::from("./gource.mp4"))]
-    pub output: PathBuf,
     /// Skip cloning/pulling repos and assume they are already present in the data directory.
     #[clap(long)]
     pub skip_clone: bool,
-    /// Include any repos matching the given selectors.
+    /// Include any repos matching the given selectors. Can be applied multiple times.
     #[clap(short, long)]
     pub include: Vec<String>,
     /// Include any repos matching the given selectors from the given file.
     #[clap(short = 'f', long)]
     pub include_file: Option<PathBuf>,
-    /// Extra arguments to pass to ffmpeg.
-    ///
-    /// The resulting command will look like `ffmpeg -r 60 -f image2pipe -c:v ppm -i - {ffmpeg_args} {output}`.
-    #[clap(long, default_value = "-c:v libx264 -preset ultrafast -crf 1 -bf 0")]
-    pub ffmpeg_args: String,
     /// Extra arguments to pass to gource.
     ///
-    /// The resulting command will look like `gource {gource_args} -o - {data_dir}/sorted.txt`.
+    /// The resulting command will look like `gource {gource_args} {data_dir}/sorted.txt`.
     ///
     /// Using `--hide root` is highly recommended.
     #[clap(
@@ -87,6 +79,22 @@ impl OutputDir {
             OutputDir::Specified(path) => path,
             OutputDir::Temp(temp) => temp.path(),
         }
+    }
+
+    pub fn create(&self) -> Result<()> {
+        match self {
+            OutputDir::Specified(path) => {
+                if !path.exists() {
+                    trace!("creating output directory: {}", path.display());
+                    std::fs::create_dir_all(path).wrap_err("failed to create output directory")?;
+                }
+            }
+            OutputDir::Temp(_) => {
+                trace!("using temporary output directory");
+            }
+        }
+
+        Ok(())
     }
 
     #[must_use]
@@ -120,10 +128,8 @@ impl OutputDir {
 pub struct Context {
     pub token: String,
     pub data_dir: OutputDir,
-    pub output: PathBuf,
     pub skip_clone: bool,
     pub includes: Option<RuleSet>,
-    pub ffmpeg_args: Vec<String>,
     pub gource_args: Vec<String>,
 }
 
@@ -132,8 +138,8 @@ impl Context {
         let data_dir = cli.data_dir.map_or_else(
             || -> Result<OutputDir> {
                 if !cli.temp {
-                    println!("{}: {}", style("WARNING").red().bright().bold(), style("No --data-dir specified!").dim());
-                    println!("{}: {}\n", style("WARNING").red().bright().bold(), style("A temporary data directory will be created and removed after finishing. You probably don't want this.").dim());
+                    eprintln!("{}: {}", style("WARNING").red().bright().bold(), style("No --data-dir specified!").dim());
+                    eprintln!("{}: {}\n", style("WARNING").red().bright().bold(), style("A temporary data directory will be created and removed after finishing. You probably don't want this.").dim());
 
                     let confirm = Confirm::with_theme(&ColorfulTheme::default())
                         .with_prompt("Are you sure you want to use a temporary data directory?")
@@ -141,7 +147,7 @@ impl Context {
                         .wrap_err("failed to prompt for temporary data directory")?;
 
                     if !confirm {
-                        println!(
+                        eprintln!(
                             "{}",
                             style("Refusing to use a temporary data directory.").red()
                         );
@@ -155,6 +161,8 @@ impl Context {
             },
             |dir| Ok(OutputDir::Specified(dir)),
         )?;
+
+        data_dir.create()?;
 
         let mut includes = None;
 
@@ -180,11 +188,6 @@ impl Context {
             }
         }
 
-        let ffmpeg_args = cli
-            .ffmpeg_args
-            .split_whitespace()
-            .map(ToString::to_string)
-            .collect();
         let gource_args = cli
             .gource_args
             .split_whitespace()
@@ -194,10 +197,8 @@ impl Context {
         let cx = Context {
             token: cli.token,
             data_dir,
-            output: cli.output,
             skip_clone: cli.skip_clone,
             includes,
-            ffmpeg_args,
             gource_args,
         };
 
@@ -209,7 +210,7 @@ const NUM_STEPS: usize = 5;
 
 macro_rules! status {
     ($step_idx:literal, $icon:literal, $($args:tt)*) => {
-        println!(
+        eprintln!(
             "{} {} {}",
             ::console::style(
                 format!("[{}/{}]", $step_idx, NUM_STEPS)
@@ -254,7 +255,7 @@ fn main() -> Result<()> {
         .wrap_err("failed to create progress style")
         .unwrap();
 
-    status!(1, "mag", "Fetching repos from GitHub API...");
+    status!(1, "mag", "Fetching repos from GitHub API");
 
     let fetch_progress = ProgressBar::new(1);
     fetch_progress.set_style(indeterminate_style.clone());
@@ -276,7 +277,7 @@ fn main() -> Result<()> {
     status!(
         2,
         "arrow_double_down",
-        "Cloning repos...{}",
+        "Cloning and/or pulling repos{}",
         if cx.skip_clone { " (skipped)" } else { "" }
     );
 
@@ -296,7 +297,7 @@ fn main() -> Result<()> {
         clone_progress.finish();
     }
 
-    status!(3, "factory", "Generating gource logs...");
+    status!(3, "factory", "Generating gource logs");
 
     let gource_progress = ProgressBar::new(repos.len() as u64);
     gource_progress.set_style(determinate_style.clone());
@@ -320,24 +321,24 @@ fn main() -> Result<()> {
 
     gource_progress.finish();
 
-    status!(4, "construction", "Combining and sorting logs...");
+    status!(4, "construction", "Combining and sorting logs");
 
     // this step is too fast for a progress bar
     debug!("combining and sorting logs");
     gource::combine_and_sort_logs(&cx, &repos).wrap_err("failed to combine and sort logs")?;
 
-    status!(5, "movie_camera", "Generating gource video...");
+    status!(5, "rocket", "Running gource");
 
     let gource_progress = ProgressBar::new(1);
     gource_progress.set_style(indeterminate_style.clone());
     gource_progress.enable_steady_tick(Duration::from_millis(200));
 
-    debug!("generating gource video");
-    gource::generate_gource_video(&cx).wrap_err("failed to generate gource video")?;
+    debug!("running gource");
+    gource::generate_gource_video(&cx).wrap_err("failed to run gource")?;
 
     gource_progress.finish();
 
-    println!(
+    eprintln!(
         "      {} Done!",
         ::emojis::get_by_shortcode("tada").unwrap()
     );

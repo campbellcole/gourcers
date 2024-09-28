@@ -5,35 +5,31 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
+    use-mold.url = "github:campbellcole/use-mold";
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, use-mold }:
     flake-utils.lib.eachDefaultSystem(system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+        moldHook = use-mold.useMoldHook {} pkgs.mold;
       in
       with pkgs;
       {
-        devShells.default = pkgs.mkShell rec {
+        devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
-            pkg-config
             clang
-            rust-analyzer
             gource
             ffmpeg
-          ];
-
-          buildInputs = [
             (rust-bin.stable.latest.default.override {
-              extensions = [ "rust-src" ];
+              extensions = [ "rust-src" "clippy" "cargo" "rust-analyzer" ];
             })
-            openssl
           ];
 
-          LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
+          shellHook = moldHook;
 
           RUST_BACKTRACE = 1;
         };

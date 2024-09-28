@@ -80,69 +80,21 @@ pub fn combine_and_sort_logs(cx: &Context, repos: &Vec<Repo>) -> Result<()> {
 }
 
 pub fn generate_gource_video(cx: &Context) -> Result<()> {
-    let mut cmd = Command::new("ffmpeg");
-
-    cmd.args([
-        "-y",
-        "-r",
-        "60",
-        "-f",
-        "image2pipe",
-        "-c:v",
-        "ppm",
-        "-i",
-        "-",
-    ])
-    .args(&cx.ffmpeg_args)
-    .arg(&cx.output);
-
-    cmd.stdin(Stdio::piped()).stderr(Stdio::piped());
-
-    trace!(command = ?cmd, "spawning ffmpeg");
-
-    let mut ffmpeg = cmd.spawn().wrap_err("failed to spawn ffmpeg")?;
-
     let mut cmd = Command::new("gource");
 
-    cmd.args(&cx.gource_args)
-        .args(["-o", "-"])
-        .arg(&cx.data_dir.sorted_log());
+    cmd.args(&cx.gource_args).arg(cx.data_dir.sorted_log());
 
-    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
 
     trace!(command = ?cmd, "spawning gource");
 
     let mut gource = cmd.spawn().wrap_err("failed to spawn gource")?;
 
-    let mut ffmpeg_in = ffmpeg.stdin.take().unwrap();
-    let mut gource_out = gource.stdout.take().unwrap();
-
-    trace!("piping gource output to ffmpeg input");
-    std::io::copy(&mut gource_out, &mut ffmpeg_in)
-        .wrap_err("failed to copy gource output to ffmpeg input")?;
-
     trace!("waiting for gource to finish");
-    let gource_output = gource.wait_with_output().wrap_err("gource failed")?;
+    let gource_status = gource.wait().wrap_err("gource failed")?;
 
-    trace!("sending EOF to ffmpeg input");
-    // EOF ffmpeg
-    drop(ffmpeg_in);
-
-    if !gource_output.status.success() {
-        bail!(
-            "gource failed: {}",
-            String::from_utf8_lossy(&gource_output.stderr)
-        );
-    }
-
-    trace!("waiting for ffmpeg to finish");
-    let ffmpeg_output = ffmpeg.wait_with_output().wrap_err("ffmpeg failed")?;
-
-    if !ffmpeg_output.status.success() {
-        bail!(
-            "ffmpeg failed: {}",
-            String::from_utf8_lossy(&ffmpeg_output.stderr)
-        );
+    if !gource_status.success() {
+        bail!("gource failed. see logs above");
     }
 
     Ok(())
